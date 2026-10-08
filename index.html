@@ -26,6 +26,7 @@
     touch-action: none;
     image-rendering: pixelated;
     background: #000;
+    display: block;
   }
 </style>
 </head>
@@ -37,7 +38,19 @@
   const W = 288, H = 512;
   const canvas = document.getElementById('game');
   const ctx = canvas.getContext('2d');
-  ctx.imageSmoothingEnabled = false;
+  // Renderiza na resolução real da tela (nítido, sem borrado)
+  function resize() {
+    const dpr = window.devicePixelRatio || 1;
+    const cssW = canvas.clientWidth || W;
+    canvas.width = Math.round(cssW * dpr);
+    canvas.height = Math.round(canvas.width * H / W);
+    const k = canvas.width / W;
+    ctx.setTransform(k, 0, 0, k, 0, 0);
+    ctx.imageSmoothingEnabled = false;
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', () => setTimeout(resize, 100));
 
   const BASE = 'flappy-bird-assets/';
   const SPR = BASE + 'sprites/';
@@ -227,17 +240,17 @@
     pipes.forEach(p => {
       // cano de cima (invertido)
       ctx.save();
-      ctx.translate(p.x, p.top);
+      ctx.translate(Math.round(p.x), Math.round(p.top));
       ctx.scale(1, -1);
       ctx.drawImage(img[pipeSprite], 0, 0);
       ctx.restore();
       // cano de baixo
-      ctx.drawImage(img[pipeSprite], p.x, p.top + GAP);
+      ctx.drawImage(img[pipeSprite], Math.round(p.x), Math.round(p.top + GAP));
     });
 
     // chão
     for (let x = baseX; x < W; x += 336) {
-      ctx.drawImage(img['base'], x, BASE_Y);
+      ctx.drawImage(img['base'], Math.round(x), BASE_Y);
     }
 
     // pássaro
@@ -245,7 +258,7 @@
     const f = state === 'dead' ? 'midflap' : seq[Math.floor(frame / 5) % 4];
     const bi = img[birdColor + 'bird-' + f];
     ctx.save();
-    ctx.translate(BIRD_X + BIRD_W / 2, bird.y + BIRD_H / 2);
+    ctx.translate(BIRD_X + BIRD_W / 2, Math.round(bird.y + BIRD_H / 2));
     ctx.rotate(state === 'ready' ? 0 : bird.rot);
     ctx.drawImage(bi, -BIRD_W / 2, -BIRD_H / 2);
     ctx.restore();
