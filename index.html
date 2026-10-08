@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="theme-color" content="#222222">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Flappy Bird</title>
+<link rel="icon" href="flappy-bird-assets/favicon.ico">
+<style>
+  html, body {
+    margin: 0; height: 100%; height: 100dvh; background: #222;
+    overscroll-behavior: none; position: fixed; inset: 0; width: 100%;
+    -webkit-touch-callout: none;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; touch-action: none; user-select: none;
+    -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas {
+    width: min(100vw, calc(100vh * 288 / 512));
+    height: min(100vh, calc(100vw * 512 / 288));
+    width: min(100dvw, calc(100dvh * 288 / 512));
+    height: min(100dvh, calc(100dvw * 512 / 288));
+    touch-action: none;
+    image-rendering: pixelated;
+    background: #000;
+  }
+</style>
+</head>
+<body>
+<canvas id="game" width="288" height="512"></canvas>
+
+<script>
+(() => {
+  const W = 288, H = 512;
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+
+  const BASE = 'flappy-bird-assets/';
+  const SPR = BASE + 'sprites/';
+  const AUD = BASE + 'audio/';
+
+  // ---------- Carregamento de imagens ----------
+  const imgNames = [
+    'background-day', 'background-night', 'base', 'gameover', 'message',
+    'pipe-green', 'pipe-red',
+    'bluebird-downflap', 'bluebird-midflap', 'bluebird-upflap',
+    'redbird-downflap', 'redbird-midflap', 'redbird-upflap',
+    'yellowbird-downflap', 'yellowbird-midflap', 'yellowbird-upflap',
+    '0','1','2','3','4','5','6','7','8','9'
+  ];
+  const img = {};
+  let loaded = 0;
+  imgNames.forEach(n => {
+    const i = new Image();
+    i.onload = () => { if (++loaded === imgNames.length) start(); };
+    i.onerror = () => { console.error('Falha ao carregar', i.src); if (++loaded === imgNames.length) start(); };
+    i.src = SPR + n + '.png';
+    img[n] = i;
+  });
+
+  // ---------- Áudio ----------
+  const probe = document.createElement('audio');
+  const ext = probe.canPlayType('audio/ogg; codecs="vorbis"') ? 'ogg' : 'wav';
+  const sounds = {};
+  ['die', 'hit', 'point', 'swoosh', 'wing'].forEach(n => {
+    const a = new Audio(AUD + n + '.' + ext);
+    a.preload = 'auto';
+    sounds[n] = a;
+  });
+  let audioUnlocked = false;
+  function unlockAudio() {
+    if (audioUnlocked) return;
+    audioUnlocked = true;
+    Object.values(sounds).forEach(a => {
+      a.muted = true;
+      const p = a.play();
+      const done = () => { a.pause(); a.currentTime = 0; a.muted = false; };
+      if (p && p.then) p.then(done).catch(() => { a.muted = false; }); else done();
+    });
+  }
+  function play(n) {
+    try {
+      const a = sounds[n].cloneNode();
+      a.play().catch(() => {});
+    } catch (e) {}
+  }
+
+  // ---------- Constantes de jogo ----------
+  const GRAVITY = 0.35;
+  const FLAP = -6;
+  const MAX_FALL = 10;
+  const PIPE_SPEED = 2;
+  const PIPE_W = 52;
+  const PIPE_H = 320;
+  const GAP = 100;
+  const PIPE_DIST = 160;
+  const BASE_Y = H - 112;
+  const BIRD_X = 70;
+  const BIRD_W = 34, BIRD_H = 24;
+
+  // ---------- Estado ----------
+  let state = 'ready'; // ready | playing | dead
+  let bg, birdColor, pipeSprite;
+  let bird, pipes, score, best, baseX, frame, deadAt, newBest;
+  best = parseInt(localStorage.getItem('flappyBest') || '0', 10);
+
+  function reset() {
+    bg = Math.random() < 0.5 ? 'background-day' : 'background-night';
+    birdColor = ['yellow', 'blue', 'red'][Math.floor(Math.random() * 3)];
+    pipeSprite = Math.random() < 0.7 ? 'pipe-green' : 'pipe-red';
+    bird = { y: H / 2 - 40, vy: 0, rot: 0 };
+    pipes = [];
+    score = 0;
+    frame = 0;
+    baseX = baseX || 0;
+    newBest = false;
+    state = 'ready';
+  }
+
+  function addPipe(x) {
+    const min = 110, max = BASE_Y - GAP - 60;
+    const top = min + Math.random() * (max - min);
+    pipes.push({ x, top, scored: false });
+  }
+
+  function flap() {
+    if (state === 'ready') {
+      state = 'playing';
+      addPipe(W + 60);
+      bird.vy = FLAP;
+      play('wing');
+    } else if (state === 'playing') {
+      bird.vy = FLAP;
+      play('wing');
+    } else if (state === 'dead') {
+      if (performance.now() - deadAt > 700) {
+        play('swoosh');
+        reset();
+      }
+    }
+  }
+
+  function die() {
+    if (state === 'dead') return;
+    state = 'dead';
+    deadAt = performance.now();
+    play('hit');
+    setTimeout(() => play('die'), 150);
+    if (score > best) {
+      best = score;
+      newBest = true;
+      try { localStorage.setItem('flappyBest', best); } catch (e) {}
+    }
+  }
+
+  // ---------- Atualização ----------
+  function update() {
+    frame++;
+
+    if (state !== 'dead') baseX = (baseX - PIPE_SPEED) % 24;
+
+    if (state === 'ready') {
+      bird.y = H / 2 - 40 + Math.sin(frame / 8) * 6;
+      return;
+    }
+
+    // física do pássaro
+    bird.vy = Math.min(bird.vy + GRAVITY, MAX_FALL);
+    bird.y += bird.vy;
+    bird.rot = Math.max(-0.45, Math.min(Math.PI / 2, bird.vy * 0.07));
+
+    if (state === 'playing') {
+      // canos
+      pipes.forEach(p => p.x -= PIPE_SPEED);
+      if (pipes.length && pipes[0].x < -PIPE_W) pipes.shift();
+      const last = pipes[pipes.length - 1];
+      if (!last || last.x < W - PIPE_DIST + 0) addPipe(last ? last.x + PIPE_DIST : W + 60);
+
+      // pontuação
+      pipes.forEach(p => {
+        if (!p.scored && p.x + PIPE_W < BIRD_X) {
+          p.scored = true;
+          score++;
+          play('point');
+        }
+      });
+
+      // colisão (hitbox levemente menor que o sprite)
+      const bx = BIRD_X + 4, by = bird.y + 4, bw = BIRD_W - 8, bh = BIRD_H - 8;
+      for (const p of pipes) {
+        if (bx + bw > p.x && bx < p.x + PIPE_W) {
+          if (by < p.top || by + bh > p.top + GAP) { die(); break; }
+        }
+      }
+      if (bird.y + BIRD_H >= BASE_Y) { bird.y = BASE_Y - BIRD_H; die(); }
+      if (bird.y < -30) { bird.y = -30; bird.vy = 0; }
+    } else if (state === 'dead') {
+      // cai até o chão
+      if (bird.y + BIRD_H >= BASE_Y) {
+        bird.y = BASE_Y - BIRD_H;
+        bird.vy = 0;
+      }
+    }
+  }
+
+  // ---------- Desenho ----------
+  function drawScore(n, x, y) {
+    const s = String(n);
+    const dw = 24, dh = 36;
+    const total = s.length * dw;
+    let cx = x - total / 2;
+    for (const ch of s) {
+      ctx.drawImage(img[ch], cx, y, dw, dh);
+      cx += dw;
+    }
+  }
+
+  function draw() {
+    ctx.clearRect(0, 0, W, H);
+    ctx.drawImage(img[bg], 0, 0, W, H);
+
+    // canos
+    pipes.forEach(p => {
+      // cano de cima (invertido)
+      ctx.save();
+      ctx.translate(p.x, p.top);
+      ctx.scale(1, -1);
+      ctx.drawImage(img[pipeSprite], 0, 0);
+      ctx.restore();
+      // cano de baixo
+      ctx.drawImage(img[pipeSprite], p.x, p.top + GAP);
+    });
+
+    // chão
+    for (let x = baseX; x < W; x += 336) {
+      ctx.drawImage(img['base'], x, BASE_Y);
+    }
+
+    // pássaro
+    const seq = ['downflap', 'midflap', 'upflap', 'midflap'];
+    const f = state === 'dead' ? 'midflap' : seq[Math.floor(frame / 5) % 4];
+    const bi = img[birdColor + 'bird-' + f];
+    ctx.save();
+    ctx.translate(BIRD_X + BIRD_W / 2, bird.y + BIRD_H / 2);
+    ctx.rotate(state === 'ready' ? 0 : bird.rot);
+    ctx.drawImage(bi, -BIRD_W / 2, -BIRD_H / 2);
+    ctx.restore();
+
+    // interface
+    if (state === 'ready') {
+      const m = img['message'];
+      ctx.drawImage(m, (W - m.width) / 2, 60);
+    } else {
+      drawScore(score, W / 2, 40);
+    }
+
+    if (state === 'dead') {
+      const g = img['gameover'];
+      ctx.drawImage(g, (W - g.width) / 2, 130);
+
+      // painel de pontuação
+      const px = 44, py = 190, pw = W - 88, ph = 110;
+      ctx.fillStyle = '#ded895';
+      ctx.strokeStyle = '#543847';
+      ctx.lineWidth = 3;
+      ctx.fillRect(px, py, pw, ph);
+      ctx.strokeRect(px, py, pw, ph);
+
+      ctx.fillStyle = '#e86101';
+      ctx.font = 'bold 14px "Courier New", monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('PONTOS', W / 2, py + 26);
+      ctx.fillText('MELHOR', W / 2, py + 68);
+
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#543847';
+      ctx.lineWidth = 4;
+      ctx.font = 'bold 26px "Courier New", monospace';
+      ctx.strokeText(score, W / 2, py + 52);
+      ctx.fillText(score, W / 2, py + 52);
+      ctx.strokeText(best, W / 2, py + 94);
+      ctx.fillText(best, W / 2, py + 94);
+
+      if (newBest) {
+        ctx.fillStyle = '#e86101';
+        ctx.font = 'bold 12px "Courier New", monospace';
+        ctx.fillText('NOVO RECORDE!', W / 2, py + ph + 18);
+      }
+
+      if (performance.now() - deadAt > 700 && Math.floor(performance.now() / 500) % 2 === 0) {
+        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = '#543847';
+        ctx.lineWidth = 3;
+        ctx.font = 'bold 14px "Courier New", monospace';
+        ctx.strokeText('Toque para jogar de novo', W / 2, 360);
+        ctx.fillText('Toque para jogar de novo', W / 2, 360);
+      }
+    }
+  }
+
+  // ---------- Loop (passo fixo de 60 FPS) ----------
+  let last = 0, acc = 0;
+  const STEP = 1000 / 60;
+  function loop(t) {
+    if (!last) last = t;
+    acc += Math.min(t - last, 100);
+    last = t;
+    while (acc >= STEP) { update(); acc -= STEP; }
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  function start() {
+    reset();
+    requestAnimationFrame(loop);
+  }
+
+  // ---------- Controles ----------
+  window.addEventListener('keydown', e => {
+    if (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') {
+      e.preventDefault();
+      if (!e.repeat) flap();
+    }
+  });
+  canvas.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    unlockAudio();
+    flap();
+  });
+  // evita zoom, rolagem e menu de contexto no celular
+  ['touchstart', 'touchmove', 'gesturestart', 'contextmenu'].forEach(ev =>
+    document.addEventListener(ev, e => e.preventDefault(), { passive: false }));
+  // pausa o relógio quando a aba/app vai para segundo plano
+  document.addEventListener('visibilitychange', () => { last = 0; acc = 0; });
+})();
+</script>
+</body>
+</html>
