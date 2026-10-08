@@ -142,7 +142,7 @@
     bg = Math.random() < 0.5 ? 'background-day' : 'background-night';
     birdColor = ['yellow', 'blue', 'red'][Math.floor(Math.random() * 3)];
     pipeSprite = Math.random() < 0.7 ? 'pipe-green' : 'pipe-red';
-    bird = { y: H / 2 - 40, vy: 0, rot: 0 };
+    bird = { x: BIRD_X, y: H / 2 - 40, vy: 0, rot: 0 };
     pipes = [];
     score = 0;
     frame = 0;
@@ -187,6 +187,28 @@
     }
   }
 
+  // Depois de bater, os canos continuam sólidos: o pássaro escorrega pela
+  // lateral ou pousa em cima, sem atravessar.
+  function resolvePipes() {
+    for (const p of pipes) {
+      const rects = [
+        { x: p.x, y: -1000, w: PIPE_W, h: p.top + 1000 },
+        { x: p.x, y: p.top + GAP, w: PIPE_W, h: BASE_Y - (p.top + GAP) }
+      ];
+      for (const r of rects) {
+        const bx = bird.x + 4, by = bird.y + 4, bw = BIRD_W - 8, bh = BIRD_H - 8;
+        const left = bx + bw - r.x, right = r.x + r.w - bx;
+        const up = by + bh - r.y, down = r.y + r.h - by;
+        if (left <= 0 || right <= 0 || up <= 0 || down <= 0) continue;
+        const m = Math.min(left, right, up, down);
+        if (m === left) bird.x -= left;
+        else if (m === right) bird.x += right;
+        else if (m === up) { bird.y -= up; bird.vy = 0; }
+        else { bird.y += down; bird.vy = Math.max(bird.vy, 0); }
+      }
+    }
+  }
+
   // ---------- Atualização ----------
   function update() {
     frame++;
@@ -212,7 +234,7 @@
 
       // pontuação
       pipes.forEach(p => {
-        if (!p.scored && p.x + PIPE_W < BIRD_X) {
+        if (!p.scored && p.x + PIPE_W < bird.x) {
           p.scored = true;
           score++;
           play('point');
@@ -220,7 +242,7 @@
       });
 
       // colisão (hitbox levemente menor que o sprite)
-      const bx = BIRD_X + 4, by = bird.y + 4, bw = BIRD_W - 8, bh = BIRD_H - 8;
+      const bx = bird.x + 4, by = bird.y + 4, bw = BIRD_W - 8, bh = BIRD_H - 8;
       for (const p of pipes) {
         if (bx + bw > p.x && bx < p.x + PIPE_W) {
           if (by < p.top || by + bh > p.top + GAP) { die(); break; }
@@ -229,6 +251,7 @@
       if (bird.y + BIRD_H >= BASE_Y) { bird.y = BASE_Y - BIRD_H; die(); }
       if (bird.y < -30) { bird.y = -30; bird.vy = 0; }
     } else if (state === 'dead') {
+      resolvePipes();
       // cai até o chão
       if (bird.y + BIRD_H >= BASE_Y) {
         bird.y = BASE_Y - BIRD_H;
@@ -275,7 +298,7 @@
     const f = state === 'dead' ? 'midflap' : seq[Math.floor(frame / 5) % 4];
     const bi = bigBird(birdColor + 'bird-' + f);
     ctx.save();
-    ctx.translate(BIRD_X + BIRD_W / 2, Math.round(bird.y + BIRD_H / 2));
+    ctx.translate(Math.round(bird.x + BIRD_W / 2), Math.round(bird.y + BIRD_H / 2));
     ctx.rotate(state === 'ready' ? 0 : bird.rot);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
