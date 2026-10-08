@@ -142,7 +142,7 @@
     bg = Math.random() < 0.5 ? 'background-day' : 'background-night';
     birdColor = ['yellow', 'blue', 'red'][Math.floor(Math.random() * 3)];
     pipeSprite = Math.random() < 0.7 ? 'pipe-green' : 'pipe-red';
-    bird = { y: H / 2 - 40, vy: 0, rot: 0 };
+    bird = { x: BIRD_X, y: H / 2 - 40, prevY: H / 2 - 40, vy: 0, rot: 0 };
     pipes = [];
     score = 0;
     frame = 0;
@@ -187,6 +187,50 @@
     }
   }
 
+  // ---------- Física dos canos (sólidos, inclusive depois de bater) ----------
+  const HB = 4; // margem da hitbox em relação ao sprite
+  function pipeRects(p) {
+    return [
+      { x: p.x, y: -1000, w: PIPE_W, h: p.top + 1000, bottom: false },
+      { x: p.x, y: p.top + GAP, w: PIPE_W, h: BASE_Y - (p.top + GAP), bottom: true }
+    ];
+  }
+  function hits(x, y, r) {
+    const bx = x + HB, by = y + HB, bw = BIRD_W - HB * 2, bh = BIRD_H - HB * 2;
+    return bx + bw > r.x && bx < r.x + r.w && by + bh > r.y && by < r.y + r.h;
+  }
+  function findHit() {
+    for (const p of pipes) for (const r of pipeRects(p)) if (hits(bird.x, bird.y, r)) return r;
+    return null;
+  }
+  function blocked(x, y) {
+    for (const p of pipes) for (const r of pipeRects(p)) if (hits(x, y, r)) return true;
+    return false;
+  }
+  // Encosta o pássaro na face do cano que ele bateu (sem entrar nele)
+  function settleOn(r) {
+    const by0 = bird.prevY + HB, bh = BIRD_H - HB * 2;
+    const wasAlignedVertically = by0 < r.y + r.h && by0 + bh > r.y;
+    if (wasAlignedVertically) {
+      bird.x = r.x - BIRD_W + HB;            // bateu de lado: fica rente à lateral
+    } else if (r.bottom) {
+      bird.y = r.y - BIRD_H + HB;            // veio de cima: pousa no cano
+      bird.vy = 0;
+    } else {
+      bird.y = r.y + r.h - HB;               // veio de baixo: fica abaixo do cano de cima
+      bird.vy = 0;
+    }
+  }
+  // Queda depois da batida: anda em passos de 1px, parando em qualquer cano
+  function moveDead() {
+    const steps = Math.max(1, Math.ceil(Math.abs(bird.vy)));
+    const dy = bird.vy / steps;
+    for (let i = 0; i < steps; i++) {
+      if (blocked(bird.x, bird.y + dy)) { bird.vy = 0; break; }
+      bird.y += dy;
+    }
+  }
+
   // ---------- Atualização ----------
   function update() {
     frame++;
@@ -200,8 +244,14 @@
 
     // física do pássaro
     bird.vy = Math.min(bird.vy + GRAVITY, MAX_FALL);
-    bird.y += bird.vy;
-    bird.rot = Math.max(-0.45, Math.min(Math.PI / 2, bird.vy * 0.07));
+    bird.prevY = bird.y;
+    if (state === 'dead') {
+      moveDead();
+      bird.rot = Math.min(Math.PI / 2, bird.rot + 0.15);
+    } else {
+      bird.y += bird.vy;
+      bird.rot = Math.max(-0.45, Math.min(Math.PI / 2, bird.vy * 0.07));
+    }
 
     if (state === 'playing') {
       // canos
@@ -212,20 +262,16 @@
 
       // pontuação
       pipes.forEach(p => {
-        if (!p.scored && p.x + PIPE_W < BIRD_X) {
+        if (!p.scored && p.x + PIPE_W < bird.x) {
           p.scored = true;
           score++;
           play('point');
         }
       });
 
-      // colisão (hitbox levemente menor que o sprite)
-      const bx = BIRD_X + 4, by = bird.y + 4, bw = BIRD_W - 8, bh = BIRD_H - 8;
-      for (const p of pipes) {
-        if (bx + bw > p.x && bx < p.x + PIPE_W) {
-          if (by < p.top || by + bh > p.top + GAP) { die(); break; }
-        }
-      }
+      // colisão com os canos
+      const hit = findHit();
+      if (hit) { settleOn(hit); die(); }
       if (bird.y + BIRD_H >= BASE_Y) { bird.y = BASE_Y - BIRD_H; die(); }
       if (bird.y < -30) { bird.y = -30; bird.vy = 0; }
     } else if (state === 'dead') {
@@ -275,7 +321,7 @@
     const f = state === 'dead' ? 'midflap' : seq[Math.floor(frame / 5) % 4];
     const bi = bigBird(birdColor + 'bird-' + f);
     ctx.save();
-    ctx.translate(BIRD_X + BIRD_W / 2, Math.round(bird.y + BIRD_H / 2));
+    ctx.translate(Math.round(bird.x + BIRD_W / 2), Math.round(bird.y + BIRD_H / 2));
     ctx.rotate(state === 'ready' ? 0 : bird.rot);
     ctx.imageSmoothingEnabled = true;
     ctx.imageSmoothingQuality = 'high';
@@ -372,4 +418,3 @@
 </script>
 </body>
 </html>
-
