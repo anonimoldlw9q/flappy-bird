@@ -48,8 +48,25 @@
     ctx.setTransform(k, 0, 0, k, 0, 0);
     ctx.imageSmoothingEnabled = false;
   }
+  // Pássaro pré-ampliado (nearest-neighbor, fator inteiro) para girar sem "formigar"
+  let birdCache = {};
+  function bigBird(name) {
+    const n = Math.max(2, Math.ceil(canvas.width / W) + 1);
+    const key = name + n;
+    if (!birdCache[key]) {
+      const src = img[name];
+      const c = document.createElement('canvas');
+      c.width = src.width * n;
+      c.height = src.height * n;
+      const g = c.getContext('2d');
+      g.imageSmoothingEnabled = false;
+      g.drawImage(src, 0, 0, c.width, c.height);
+      birdCache[key] = c;
+    }
+    return birdCache[key];
+  }
   resize();
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', () => { birdCache = {}; resize(); });
   window.addEventListener('orientationchange', () => setTimeout(resize, 100));
 
   const BASE = 'flappy-bird-assets/';
@@ -256,11 +273,13 @@
     // pássaro
     const seq = ['downflap', 'midflap', 'upflap', 'midflap'];
     const f = state === 'dead' ? 'midflap' : seq[Math.floor(frame / 5) % 4];
-    const bi = img[birdColor + 'bird-' + f];
+    const bi = bigBird(birdColor + 'bird-' + f);
     ctx.save();
     ctx.translate(BIRD_X + BIRD_W / 2, Math.round(bird.y + BIRD_H / 2));
     ctx.rotate(state === 'ready' ? 0 : bird.rot);
-    ctx.drawImage(bi, -BIRD_W / 2, -BIRD_H / 2);
+    ctx.imageSmoothingEnabled = true;
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(bi, -BIRD_W / 2, -BIRD_H / 2, BIRD_W, BIRD_H);
     ctx.restore();
 
     // interface
