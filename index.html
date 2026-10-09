@@ -1,34 +1,42 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
-<meta name="theme-color" content="#222222">
-<meta name="mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Flappy Bird</title>
-<link rel="icon" href="flappy-bird-assets/favicon.ico">
-<style>
-  html, body {
-    margin: 0; height: 100%; height: 100dvh; background: #222;
-    overscroll-behavior: none; position: fixed; inset: 0; width: 100%;
-    -webkit-touch-callout: none;
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden; touch-action: none; user-select: none;
-    -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
-  }
-  canvas {
-    width: min(100vw, calc(100vh * 288 / 512));
-    height: min(100vh, calc(100vw * 512 / 288));
-    width: min(100dvw, calc(100dvh * 288 / 512));
-    height: min(100dvh, calc(100dvw * 512 / 288));
-    touch-action: none;
-    image-rendering: pixelated;
-    background: #000;
-    display: block;
-  }
-</style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+
+  <!-- Aparência do jogo -->
+  <meta name="theme-color" content="#222222">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+  <!-- Título da página -->
+  <title>Flappy Bird — Jogue Online Grátis</title>
+
+  <!-- Descrição para buscadores -->
+  <meta name="description" content="Jogue Flappy Bird online grátis! Toque na tela, desvie dos canos e tente bater seu recorde. Até onde você consegue chegar?">
+
+  <!-- Compartilhamento: WhatsApp, Facebook, Discord etc. -->
+  <meta property="og:type" content="website">
+  <meta property="og:locale" content="pt_BR">
+  <meta property="og:site_name" content="Flappy Bird">
+  <meta property="og:title" content="🐦 Flappy Bird — Jogue Online Grátis!">
+  <meta property="og:description" content="Desvie dos canos, faça pontos e bata seu recorde neste clássico viciante. Clique para jogar agora!">
+  <meta property="og:image" content="https://flappy-bird-black-xi.vercel.app/flappy-banner.png">
+  <meta property="og:image:secure_url" content="https://flappy-bird-black-xi.vercel.app/flappy-banner.png">
+  <meta property="og:image:type" content="image/jpeg">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="Banner do jogo Flappy Bird">
+
+  <!-- Twitter/X -->
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="Flappy Bird — Jogue Online Grátis">
+  <meta name="twitter:description" content="Desvie dos canos e tente bater seu recorde. Jogue agora!">
+  <meta name="twitter:image" content="https://flappy-bird-black-xi.vercel.app/flappy-banner.png">
+
+  <!-- Ícone -->
+  <link rel="icon" href="flappy-bird-assets/favicon.ico">
 </head>
 <body>
 <canvas id="game" width="288" height="512"></canvas>
