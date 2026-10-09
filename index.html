@@ -39,6 +39,26 @@
   <!-- Ícone original do jogo -->
   <link rel="icon" href="flappy-bird-assets/favicon.ico">
 </head>
+<style>
+  html, body {
+    margin: 0; height: 100%; height: 100dvh; background: #222;
+    overscroll-behavior: none; position: fixed; inset: 0; width: 100%;
+    -webkit-touch-callout: none;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden; touch-action: none; user-select: none;
+    -webkit-user-select: none; -webkit-tap-highlight-color: transparent;
+  }
+  canvas {
+    width: min(100vw, calc(100vh * 288 / 512));
+    height: min(100vh, calc(100vw * 512 / 288));
+    width: min(100dvw, calc(100dvh * 288 / 512));
+    height: min(100dvh, calc(100dvw * 512 / 288));
+    touch-action: none;
+    image-rendering: pixelated;
+    background: #000;
+    display: block;
+  }
+</style>
 <body>
 <canvas id="game" width="288" height="512"></canvas>
 
